@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>HateShield AI | Fine-Grained Urdu/English Detection</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        body { background: radial-gradient(circle at 10% 20%, #0a0a0a, #1a1a1a); color: #e0e0e0; }
+        .glass-card { background: rgba(0,0,0,0.65); backdrop-filter: blur(12px); border: 1px solid rgba(255,80,0,0.3); border-radius: 2rem; box-shadow: 0 20px 35px -12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,80,0,0.1) inset; }
+        .orange-glow { background: linear-gradient(135deg, #ff6a00, #ff3c00); box-shadow: 0 8px 20px rgba(255,60,0,0.4); }
+        .orange-glow:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(255,60,0,0.5); }
+        .sidebar-dark { background: #0c0c0c; border-right: 1px solid rgba(255,80,0,0.25); }
+        .input-black-orange { background: #0f0f0f; border: 1.5px solid #333; border-radius: 1.2rem; padding: 0.85rem 1rem; color: #ffecdc; transition: all 0.2s; width: 100%; }
+        .input-black-orange:focus { border-color: #ff6a00; outline: none; box-shadow: 0 0 0 3px rgba(255,106,0,0.2); }
+        .badge-explicit { background: #ff3c00; color: black; font-weight: 800; padding: 0.2rem 0.9rem; border-radius: 40px; font-size: 0.7rem; letter-spacing: 0.5px; }
+        .badge-implicit { background: #ff8c42; color: black; font-weight: 800; padding: 0.2rem 0.9rem; border-radius: 40px; font-size: 0.7rem; }
+        .badge-safe { background: #2c2c2c; color: #ffaa66; border: 1px solid #ff6600; }
+        .heatmap-word { display: inline-block; margin: 3px 2px; padding: 2px 6px; border-radius: 20px; transition: all 0.1s; font-weight: 500; }
+        .risk-high { background: rgba(255,60,0,0.2); border-left: 4px solid #ff3c00; color: #ffae7a; }
+        .risk-mild { background: rgba(255,140,66,0.15); border-left: 4px solid #ff8c42; }
+        .risk-safe { background: rgba(34,34,34,0.7); border-left: 4px solid #2ecc71; }
+        .sidebar-item { transition: all 0.2s; cursor: pointer; border-radius: 1rem; margin: 6px 0; font-weight: 500; }
+        .sidebar-item:hover { background: #ff3c001a; color: #ff8c42; transform: translateX(6px); }
+        .sidebar-active { background: linear-gradient(95deg, #ff6a00, #ff3c00); color: black !important; font-weight: bold; box-shadow: 0 4px 12px rgba(255,60,0,0.4); }
+        .fade-in { animation: fadeSlideUp 0.35s ease-out; }
+        @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .file-drop-zone { border: 2px dashed #ff6a00; background: #11111188; backdrop-filter: blur(4px); border-radius: 1.5rem; transition: 0.2s; }
+        .file-drop-zone:hover { background: #ff3c0022; border-color: #ffaa44; }
+        .error-toast-orange { background: #2a1506; border-left: 5px solid #ff6a00; color: #ffbd87; border-radius: 1rem; padding: 0.6rem 1rem; font-weight: 500; }
+        .toggle-group { display: flex; gap: 12px; background: #1a1a1a; padding: 5px; border-radius: 40px; border: 1px solid #ff6a00; width: fit-content; }
+        .toggle-btn { padding: 6px 18px; border-radius: 30px; font-weight: bold; font-size: 0.8rem; cursor: pointer; transition: 0.2s; background: transparent; color: #ffaa66; }
+        .toggle-btn.active { background: #ff6a00; color: black; box-shadow: 0 0 8px rgba(255,106,0,0.5); }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #1a1a1a; }
+        ::-webkit-scrollbar-thumb { background: #ff6a00; border-radius: 10px; }
+        .urdu-keyboard { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #111; border: 1px solid #ff6a00; border-radius: 1.5rem; padding: 12px; display: none; flex-wrap: wrap; justify-content: center; gap: 8px; z-index: 999; backdrop-filter: blur(16px); width: 90%; max-width: 650px; box-shadow: 0 20px 35px -10px black; }
+        .urdu-keyboard button { background: #1f1f1f; border: none; color: #ffaa66; font-size: 1.2rem; font-weight: bold; padding: 8px 14px; border-radius: 1rem; cursor: pointer; transition: 0.1s; font-family: 'Noto Nastaliq Urdu', 'Segoe UI', system-ui; }
+        .urdu-keyboard button:hover { background: #ff6a00; color: black; transform: scale(1.05); }
+        .urdu-toggle-btn { background: #ff6a00; border: none; color: black; font-weight: bold; padding: 4px 12px; border-radius: 30px; cursor: pointer; font-size: 0.7rem; position: absolute; bottom: 8px; right: 8px; z-index: 5; transition: 0.1s; }
+        .urdu-toggle-btn:hover { background: #ffaa33; transform: scale(1.02); }
+        .textarea-wrapper { position: relative; display: block; width: 100%; }
+    </style>
+</head>
+<body class="antialiased">
+<div class="flex flex-col md:flex-row min-h-screen">
+    <aside class="sidebar-dark w-full md:w-80 shadow-2xl z-20 p-5">
+        <div class="flex items-center gap-3 mb-8 border-b border-orange-800/40 pb-5">
+            <div class="h-12 w-12 rounded-2xl orange-glow flex items-center justify-center"><i class="fas fa-shield-alt text-black text-2xl"></i></div>
+            <div><h1 class="text-2xl font-black tracking-tight bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">HateShield</h1><p class="text-xs text-orange-300/70">Multimodal Urdu/Eng · Binary/Multiclass</p></div>
+        </div>
+        <nav class="space-y-1">
+            <button data-nav="home" class="sidebar-item w-full flex items-center gap-3 px-4 py-3"><i class="fas fa-home w-5"></i> Home</button>
+            <button data-nav="unimodal" class="sidebar-item w-full flex items-center gap-3 px-4 py-3"><i class="fas fa-file-alt w-5"></i> Unimodal Analysis</button>
+            <button data-nav="multimodal" class="sidebar-item w-full flex items-center gap-3 px-4 py-3"><i class="fas fa-layer-group w-5"></i> Multimodal Fusion</button>
+            <button data-nav="history" class="sidebar-item w-full flex items-center gap-3 px-4 py-3"><i class="fas fa-history w-5"></i> History Timeline</button>
+            <button data-nav="about" class="sidebar-item w-full flex items-center gap-3 px-4 py-3"><i class="fas fa-robot w-5"></i> About</button>
+        </nav>
+
+        <!-- ✅ API Status Indicator -->
+        <div class="mt-6 p-3 rounded-xl bg-black/40 border border-orange-800/30">
+            <p class="text-xs text-orange-400/70 mb-1 font-bold uppercase tracking-wide">Backend Status</p>
+            <div class="flex items-center gap-2">
+                <span id="apiStatusDot" class="w-2.5 h-2.5 rounded-full bg-gray-600 animate-pulse"></span>
+                <span id="apiStatusText" class="text-xs text-gray-400">Checking...</span>
+            </div>
+            <p class="text-[10px] text-orange-500/40 mt-1">XLM-RoBERTa · Binary & Multiclass</p>
+        </div>
+
+        <div class="absolute bottom-6 left-6 text-[11px] text-orange-500/50">© 2026 · Fine-grained AI</div>
+    </aside>
+
+    <main class="flex-1 p-5 md:p-8 relative">
+        <div class="flex justify-end mb-4">
+            <div class="flex gap-2 items-center text-orange-400 text-sm"><i class="fas fa-shield-alt"></i><span class="hidden md:inline">Zero tolerance · Real-time</span></div>
+        </div>
+
+        <!-- Home -->
+        <div id="homeSection" class="view-section max-w-5xl mx-auto text-center fade-in">
+            <div class="glass-card p-10 md:p-12">
+                <div class="w-28 h-28 mx-auto orange-glow rounded-full flex items-center justify-center mb-6 shadow-2xl"><i class="fas fa-microphone-alt text-black text-5xl"></i></div>
+                <h1 class="text-4xl md:text-6xl font-black bg-gradient-to-r from-orange-300 to-orange-500 bg-clip-text text-transparent">Multimodal <br>Hate Speech Detection</h1>
+                <p class="text-orange-100/70 mt-5 max-w-xl mx-auto text-lg">Binary or Multiclass classification · Urdu/English · Word heatmaps · Image moderation</p>
+                <button id="getStartedBtn" class="mt-8 orange-glow text-black font-bold px-8 py-3 rounded-full inline-flex gap-2 items-center transition-all"><i class="fas fa-bolt"></i> Start Analysis</button>
+            </div>
+        </div>
+
+        <!-- Unimodal -->
+        <div id="unimodalSection" class="view-section hidden max-w-6xl mx-auto fade-in">
+            <div class="glass-card p-6">
+                <h2 class="text-2xl font-bold flex gap-2 items-center mb-4"><i class="fas fa-microchip text-orange-500"></i> Unimodal Analysis</h2>
+                <div class="flex gap-6 border-b border-orange-800/30 pb-2 mb-5">
+                    <button data-uni-tab="text" class="uni-tab font-bold pb-2 text-orange-500 border-b-2 border-orange-500">📝 Text Analysis</button>
+                    <button data-uni-tab="image" class="uni-tab font-bold pb-2 text-gray-400">🖼️ Image Analysis</button>
+                </div>
+                <!-- Text Tab -->
+                <div id="textPanel" class="space-y-5">
+                    <div class="textarea-wrapper">
+                        <textarea id="uniText" rows="3" class="input-black-orange" placeholder="Enter Urdu / Roman Urdu / English ... (min 5 characters)"></textarea>
+                    </div>
+                    <div class="flex flex-wrap gap-4 justify-between items-center">
+                        <div class="toggle-group" id="uniClassToggle">
+                            <span class="toggle-btn active" data-mode="binary">Binary (Hate/Not Hate)</span>
+                            <span class="toggle-btn" data-mode="multiclass">Multiclass (Explicit/Implicit/Safe)</span>
+                        </div>
+                        <!-- ✅ Model select now only shows XLM-R (only loaded model) -->
+                        <select id="textModelSelect" class="input-black-orange w-56">
+                            <option value="xlmr_binary">XLM-RoBERTa (Binary)</option>
+                            <option value="xlmr_multiclass">XLM-RoBERTa (Multiclass)</option>
+                        </select>
+                    </div>
+                    <div id="uniTextError" class="error-toast-orange hidden text-sm"></div>
+                    <button id="analyzeTextBtn" class="orange-glow text-black font-bold px-7 py-2.5 rounded-full transition-all w-full md:w-auto"><i class="fas fa-search mr-2"></i> Analyze Text</button>
+                </div>
+                <!-- Image Tab -->
+                <div id="imagePanel" class="hidden space-y-5">
+                    <div id="imgDropZone" class="file-drop-zone p-8 text-center cursor-pointer"><i class="fas fa-cloud-upload-alt text-4xl text-orange-500 mb-2 block"></i><p class="text-orange-200/70">Drag & drop or click (JPG/PNG, max 5 MB)</p><input type="file" id="uniImageInput" class="hidden" accept="image/jpeg,image/png,image/jpg"></div>
+                    <div id="uniImagePreview" class="hidden relative"><img id="uniPreviewImg" class="max-h-48 mx-auto rounded-xl border border-orange-500/40"><button id="clearUniImage" class="text-orange-400 text-sm mt-2 underline">Remove</button></div>
+                    <select id="imageModelSelect" class="input-black-orange"><option>ViT-B/32</option><option>ResNet50</option><option>CLIP</option></select>
+                    <button id="analyzeImageBtn" class="orange-glow text-black font-bold px-6 py-2.5 rounded-full">Analyze Image</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Multimodal -->
+        <div id="multimodalSection" class="view-section hidden max-w-6xl mx-auto fade-in">
+            <div class="glass-card p-6 space-y-5">
+                <h2 class="text-2xl font-bold"><i class="fas fa-bezier-curve text-orange-500"></i> Multimodal Fusion</h2>
+                <div class="textarea-wrapper">
+                    <textarea id="mmText" rows="3" class="input-black-orange" placeholder="Urdu / English text (minimum 5 characters)"></textarea>
+                </div>
+                <div class="flex flex-wrap gap-4 justify-between items-center">
+                    <div class="toggle-group" id="mmClassToggle">
+                        <span class="toggle-btn active" data-mode="binary">Binary (Hate/Not Hate)</span>
+                        <span class="toggle-btn" data-mode="multiclass">Multiclass (Explicit/Implicit/Safe)</span>
+                    </div>
+                    <select id="fusionSelect" class="input-black-orange"><option>Early Fusion</option><option>Late Fusion</option><option>Attention Fusion</option></select>
+                </div>
+                <div id="mmDropZone" class="file-drop-zone p-6 text-center cursor-pointer"><i class="fas fa-images text-orange-500 text-2xl"></i> Upload image (max 5 MB)<input type="file" id="mmImageInput" class="hidden" accept="image/jpeg,image/png"></div>
+                <div id="mmPreview" class="hidden"><img id="mmPreviewImg" class="max-h-32 rounded"><button id="clearMmImage" class="text-orange-400 text-xs mt-1">Remove</button></div>
+                <button id="analyzeMmBtn" class="orange-glow text-black font-bold px-6 py-2.5 rounded-full w-full md:w-auto">Run Multimodal Analysis</button>
+                <div id="mmError" class="error-toast-orange hidden"></div>
+            </div>
+        </div>
+
+        <!-- History & About -->
+        <div id="historySection" class="view-section hidden max-w-5xl mx-auto"><div class="glass-card p-6"><h2 class="text-2xl font-bold mb-4">📜 Prediction Timeline</h2><div id="historyList" class="space-y-3 max-h-[500px] overflow-y-auto"></div><button id="clearHistoryBtn" class="text-orange-400 text-sm mt-4 font-semibold hover:underline">Clear All History</button></div></div>
+        <div id="aboutSection" class="view-section hidden max-w-4xl mx-auto"><div class="glass-card p-6"><h2 class="text-2xl font-bold">🧠 Advanced Hate Shield</h2><p class="mt-3 leading-relaxed text-orange-100/80">Fine-grained Urdu/English hate detection with explicit/implicit classification, attention word maps, and image moderation. Backend powered by XLM-RoBERTa (Binary & Multiclass).</p><div class="mt-4 flex gap-2"><span class="badge-explicit">Explicit Hate</span><span class="badge-implicit">Implicit Hate</span><span class="badge-safe bg-transparent border border-orange-500/50 rounded-full px-3 py-1 text-xs font-bold">Safe</span></div></div></div>
+
+        <div id="outputContainer" class="max-w-6xl mx-auto mt-8 hidden"></div>
+        <div id="loadingOverlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 hidden"><div class="glass-card p-8 text-center"><div class="w-14 h-14 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div><p class="mt-4 text-orange-300 font-bold">AI analyzing hate patterns...</p></div></div>
+    </main>
+</div>
+
+<!-- Urdu Keyboard -->
+<div id="urduKeyboard" class="urdu-keyboard">
+    <button data-urdu="ا">ا</button><button data-urdu="ب">ب</button><button data-urdu="پ">پ</button>
+    <button data-urdu="ت">ت</button><button data-urdu="ٹ">ٹ</button><button data-urdu="ث">ث</button>
+    <button data-urdu="ج">ج</button><button data-urdu="چ">چ</button><button data-urdu="ح">ح</button>
+    <button data-urdu="خ">خ</button><button data-urdu="د">د</button><button data-urdu="ڈ">ڈ</button>
+    <button data-urdu="ذ">ذ</button><button data-urdu="ر">ر</button><button data-urdu="ڑ">ڑ</button>
+    <button data-urdu="ز">ز</button><button data-urdu="ژ">ژ</button><button data-urdu="س">س</button>
+    <button data-urdu="ش">ش</button><button data-urdu="ص">ص</button><button data-urdu="ض">ض</button>
+    <button data-urdu="ط">ط</button><button data-urdu="ظ">ظ</button><button data-urdu="ع">ع</button>
+    <button data-urdu="غ">غ</button><button data-urdu="ف">ف</button><button data-urdu="ق">ق</button>
+    <button data-urdu="ک">ک</button><button data-urdu="گ">گ</button><button data-urdu="ل">ل</button>
+    <button data-urdu="م">م</button><button data-urdu="ن">ن</button><button data-urdu="و">و</button>
+    <button data-urdu="ہ">ہ</button><button data-urdu="ھ">ھ</button><button data-urdu="ی">ی</button>
+    <button data-urdu="ے">ے</button><button data-urdu="ء">ء</button><button data-urdu=" ">Space</button>
+    <button data-urdu="backspace">⌫</button>
+    <button data-close-urdu>✖ Close</button>
+</div>
+
+<script>
+// ============================================================
+// CONFIG — ✅ Backend URL
+// ============================================================
+const API_BASE = "http://127.0.0.1:5000";
+
+// ============================================================
+// GLOBALS
+// ============================================================
+let currentUniImageFile = null, currentMmImageFile = null;
+let historyData = JSON.parse(localStorage.getItem('hate_history_orange') || '[]');
+let currentChart = null;
+const MAX_IMG_MB = 5;
+let uniClassMode = "binary";
+let mmClassMode  = "binary";
+
+// ============================================================
+// ✅ BACKEND: Check health on load
+// ============================================================
+async function checkBackendStatus() {
+    const dot  = document.getElementById('apiStatusDot');
+    const text = document.getElementById('apiStatusText');
+    try {
+        const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) });
+        if (res.ok) {
+            dot.className  = 'w-2.5 h-2.5 rounded-full bg-green-500';
+            text.textContent = 'Connected ✅';
+            text.className = 'text-xs text-green-400';
+        } else throw new Error();
+    } catch {
+        dot.className  = 'w-2.5 h-2.5 rounded-full bg-red-500';
+        text.textContent = 'Offline ❌ — run app.py';
+        text.className = 'text-xs text-red-400';
+    }
+}
+checkBackendStatus();
+
+// ============================================================
+// ✅ BACKEND: Call /predict
+// ============================================================
+async function callBackend(text, modelKey) {
+    const res = await fetch(`${API_BASE}/predict`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text, model: modelKey })
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Server error ${res.status}`);
+    }
+    return await res.json();
+}
+
+// ============================================================
+// Convert backend response → frontend result format
+// ============================================================
+function backendToResult(apiResponse, inputText) {
+    const pred       = apiResponse.prediction;   // "not_hate" / "hate" / "implicit" / "explicit"
+    const task       = apiResponse.task;          // "binary" or "multiclass"
+    const confidence = apiResponse.confidence;
+    const allProbs   = apiResponse.all_probs;
+
+    // Map to display labels
+    const labelMap = {
+        'not_hate': 'Not Hate',
+        'hate':     'Hate',
+        'implicit': 'Implicit Hate',
+        'explicit': 'Explicit Hate'
+    };
+    const prediction = labelMap[pred] || pred;
+
+    // hateType for fine-grained display
+    let hateType = 'Safe';
+    if (pred === 'hate')     hateType = 'Hate Speech';
+    if (pred === 'implicit') hateType = 'Implicit Hate';
+    if (pred === 'explicit') hateType = 'Explicit Hate';
+
+    // Fine reason from probabilities
+    const probLines = Object.entries(allProbs)
+        .map(([k, v]) => `${labelMap[k] || k}: ${(v * 100).toFixed(1)}%`)
+        .join(' · ');
+    const fineReason = `Model: ${apiResponse.model} · ${probLines}`;
+
+    // Word heatmap (simple lexicon on top of real prediction)
+    const words = inputText.split(/(\s+)/);
+    const EXPLICIT_SET = ['hate','fuck','chutiya','haramzada','gandu','bhenchod','salay','kutta','harami','lanat','kill'];
+    const IMPLICIT_SET = ['tum log','yeh log','gande','nalaik','bewakoof','jaahil','nafrat','dehati'];
+    const wordScores = words.map(w => {
+        const cl = w.toLowerCase();
+        let score = 0.02;
+        if (EXPLICIT_SET.some(k => cl.includes(k))) score = 0.96;
+        else if (IMPLICIT_SET.some(k => cl.includes(k))) score = 0.75;
+        return { word: w, score };
+    });
+
+    const flaggedWords = wordScores.filter(w => w.score > 0.5).map(w => w.word.trim()).filter(Boolean);
+
+    return { prediction, hateType, confidence, flaggedWords, fineReason, wordScores };
+}
+
+// ============================================================
+// Lexicon helpers (kept for image/multimodal mock)
+// ============================================================
+const EXPLICIT_SET = ['hate','fuck','chutiya','haramzada','gandu','bhenchod','bhen chod','kill','mar dunga','mardunga','lanat','laanat','ناپاک','نفرت انگیز','گالی','بدکلام','salay','kutta','harami'];
+const IMPLICIT_SET = ['tum log','yeh log','gande','nalaik','kamzor','bewakoof','jaahil','inka dimaagh','tum se nahi hota','nafrat','buri','احمق','جاہل','پاگل','dehati','ungrateful','slow'];
+function getKeywordMatches(text) {
+    const lower = text.toLowerCase();
+    let explicit = [], implicit = [];
+    EXPLICIT_SET.forEach(kw => { if (lower.includes(kw.toLowerCase())) explicit.push(kw); });
+    IMPLICIT_SET.forEach(kw => { if (lower.includes(kw.toLowerCase())) implicit.push(kw); });
+    return { explicit: [...new Set(explicit)], implicit: [...new Set(implicit)] };
+}
+
+function mockImageAnalysisWithSize(file, model) {
+    return new Promise((resolve, reject) => {
+        if (file && file.size > MAX_IMG_MB * 1024 * 1024) reject(`Image exceeds ${MAX_IMG_MB} MB.`);
+        setTimeout(() => {
+            let hate = file && (file.name.toLowerCase().includes('hate') || file.name.toLowerCase().includes('weapon') || file.name.toLowerCase().includes('violent'));
+            resolve({ prediction: hate ? "Hate" : "Not Hate", hateType: hate ? "Explicit Hate - Violent Imagery" : "Safe (Visual)", confidence: hate ? 0.86 : 0.92, bbox: hate ? [{ x:0.2, y:0.3, w:0.6, h:0.4 }] : [], flaggedWords: hate ? ["violent content"] : [], fineReason: hate ? "Image contains symbols of violence." : "No toxic visual elements." });
+        }, 700);
+    });
+}
+
+function mockMultimodalAnalysis(text, image, fusion, mode) {
+    return new Promise((resolve, reject) => {
+        if (image && image.size > MAX_IMG_MB * 1024 * 1024) reject(`Image max size ${MAX_IMG_MB}MB`);
+        else {
+            setTimeout(() => {
+                const matches = getKeywordMatches(text);
+                const isExplicit = matches.explicit.length > 0;
+                const isImplicit = matches.implicit.length > 0;
+                let hateType = "Safe", confidence = 0.92;
+                if (isExplicit) { hateType = "Explicit Hate"; confidence = 0.91; }
+                else if (isImplicit) { hateType = "Implicit Hate"; confidence = 0.79; }
+                let finalHate = (hateType !== "Safe") || (image && image.name.toLowerCase().includes('hate'));
+                let finalPrediction = (mode === "binary") ? (finalHate ? "Hate" : "Not Hate") : hateType;
+                resolve({ prediction: finalPrediction, hateType, confidence: Math.min(confidence, 0.98), flaggedWords: [...matches.explicit, ...matches.implicit], fineReason: `Multimodal fusion (${fusion}): Text + Image combined analysis.` });
+            }, 900);
+        }
+    });
+}
+
+// ============================================================
+// Render output
+// ============================================================
+async function renderDetailedOutput(result, inputText = "", isImageMode = false, bbox = [], mode = "binary") {
+    const container = document.getElementById('outputContainer');
+    container.classList.remove('hidden');
+    const isHate = (result.prediction !== "Not Hate" && result.prediction !== "Safe" && result.prediction !== "not_hate");
+    let badgeHtml = "";
+    if (result.prediction === "Explicit Hate") badgeHtml = '<span class="badge-explicit"><i class="fas fa-skull"></i> EXPLICIT HATE</span>';
+    else if (result.prediction === "Implicit Hate") badgeHtml = '<span class="badge-implicit"><i class="fas fa-comment-dots"></i> IMPLICIT HATE</span>';
+    else if (result.prediction === "Hate") badgeHtml = '<span class="badge-explicit">⚠️ HATE</span>';
+    else badgeHtml = '<span class="badge-safe rounded-full px-3 py-1 text-xs font-bold bg-gray-800 border border-orange-500">✅ SAFE</span>';
+    let riskClass = isHate && result.confidence > 0.8 ? "risk-high" : isHate ? "risk-mild" : "risk-safe";
+    let heatmapHtml = "";
+    if (inputText && result.wordScores) {
+        heatmapHtml = `<div class="mt-5 p-4 bg-black/40 rounded-xl border border-orange-500/20"><p class="font-bold text-orange-400 mb-2"><i class="fas fa-fire-alt mr-1"></i> Word Attention Map</p><div class="flex flex-wrap gap-1 text-base">${result.wordScores.map(w => `<span class="heatmap-word" style="background: rgba(255,60,0,${w.score}); color: ${w.score > 0.6 ? 'white' : '#ffd8c4'}; padding: 2px 9px;">${escapeHtml(w.word)}</span>`).join('')}</div></div>`;
+    }
+    let flaggedTermsHtml = (result.flaggedWords && result.flaggedWords.length) ? `<div class="flex flex-wrap gap-2 mt-3"><span class="text-orange-300 text-sm">⚠️ Trigger terms:</span>${result.flaggedWords.map(w => `<span class="bg-orange-900/60 text-orange-200 px-2 py-1 rounded-full text-xs">${escapeHtml(w)}</span>`).join('')}</div>` : "";
+    container.innerHTML = `
+        <div class="glass-card p-6 border-l-8 ${isHate ? 'border-l-orange-500' : 'border-l-emerald-600'} fade-in">
+            <div class="flex flex-wrap justify-between items-start gap-3">
+                <div><i class="fas fa-gavel text-orange-500 text-xl"></i><span class="font-black text-2xl ml-2 text-orange-100">Verdict</span></div>
+                <div class="flex gap-2 items-center">${badgeHtml}</div>
+            </div>
+            <div class="grid md:grid-cols-2 gap-6 mt-5">
+                <div>
+                    <p class="text-gray-400 text-xs uppercase tracking-wide">Prediction</p>
+                    <p class="text-4xl font-black ${isHate ? 'text-orange-500' : 'text-emerald-400'}">${result.prediction}</p>
+                    <p class="text-md font-semibold mt-1 text-orange-200/90">${result.hateType}</p>
+                    <div class="mt-4"><div class="flex justify-between text-sm"><span>Confidence</span><span class="text-orange-300">${(result.confidence*100).toFixed(1)}%</span></div><div class="w-full bg-gray-800 rounded-full h-2"><div class="bg-gradient-to-r from-orange-500 to-orange-600 h-2 rounded-full" style="width:${result.confidence*100}%"></div></div></div>
+                    ${flaggedTermsHtml}
+                </div>
+                <div><canvas id="confidenceChartCanvas" width="160" height="160" class="mx-auto"></canvas></div>
+            </div>
+            <div class="mt-4 p-4 rounded-xl ${riskClass}">
+                <p class="font-bold flex gap-2"><i class="fas fa-brain text-orange-400"></i> 🔬 Fine-grained Explanation</p>
+                <p class="text-sm leading-relaxed mt-1">${result.fineReason}</p>
+                <div class="text-xs text-orange-300/70 mt-2 pt-1 border-t border-orange-800/30">📖 LLM Insight: ${result.hateType.includes("Explicit") ? "براہ راست نفرت انگیز الفاظ" : (result.hateType.includes("Implicit") ? "لطیف تعصب" : "محفوظ متن")}</div>
+            </div>
+            ${heatmapHtml}
+        </div>`;
+    setTimeout(() => {
+        const canvas = document.getElementById('confidenceChartCanvas');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            if (currentChart) currentChart.destroy();
+            currentChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels: ['Hate Probability','Safe'], datasets: [{ data: [result.confidence*100, (1-result.confidence)*100], backgroundColor: ['#ff6a00','#2c2c2c'], borderWidth: 0 }] },
+                options: { cutout: '65%', responsive: true, plugins: { legend: { labels: { color: '#ffc299' } } } }
+            });
+        }
+    }, 30);
+}
+
+function escapeHtml(str) { return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+function showLoading(show) { document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none'; }
+function showErrorToast(id, msg) { const el = document.getElementById(id); if(el) { el.innerText = msg; el.classList.remove('hidden'); setTimeout(() => el.classList.add('hidden'), 4000); } }
+function addHistory(mode, pred, type, preview) {
+    historyData.unshift({ mode, prediction: pred, hateType: type, preview: preview.slice(0,70), ts: Date.now() });
+    if (historyData.length > 20) historyData.pop();
+    localStorage.setItem('hate_history_orange', JSON.stringify(historyData));
+    renderHistory();
+}
+function renderHistory() {
+    const div = document.getElementById('historyList');
+    if (!div) return;
+    if (historyData.length === 0) { div.innerHTML = '<div class="text-center text-gray-400 p-5">No analysis yet</div>'; return; }
+    div.innerHTML = historyData.map(e => `<div class="bg-black/40 border border-orange-800/30 p-3 rounded-xl flex justify-between items-center"><div><span class="font-bold ${e.prediction.includes('Hate')?'text-orange-500':'text-emerald-400'}">${e.prediction}</span><span class="text-xs ml-2 bg-orange-900/50 px-2 py-0.5 rounded-full">${e.hateType.split(' ')[0]}</span><div class="text-xs text-orange-200/70 mt-1">${e.preview}</div><div class="text-[10px] text-gray-500">${new Date(e.ts).toLocaleString()}</div></div><i class="fas fa-dragon text-orange-500/50"></i></div>`).join('');
+}
+
+function processImage(file, setter, previewDiv, imgElement) {
+    if (!file.type.startsWith('image/')) { alert("Only images allowed"); return false; }
+    if (file.size > MAX_IMG_MB * 1024 * 1024) { alert(`Max ${MAX_IMG_MB}MB`); return false; }
+    const reader = new FileReader();
+    reader.onload = ev => { imgElement.src = ev.target.result; previewDiv.classList.remove('hidden'); setter(file); };
+    reader.readAsDataURL(file);
+    return true;
+}
+function setupOrangeImageUpload(dropId, inputId, previewId, imgId, clearId, setterFunc) {
+    let drop = document.getElementById(dropId), input = document.getElementById(inputId), previewDiv = document.getElementById(previewId), img = document.getElementById(imgId), clearBtn = document.getElementById(clearId);
+    if (drop) drop.onclick = () => input.click();
+    if (drop) drop.ondragover = e => e.preventDefault();
+    if (drop) drop.ondrop = e => { e.preventDefault(); if (e.dataTransfer.files[0]) processImage(e.dataTransfer.files[0], setterFunc, previewDiv, img); };
+    if (input) input.onchange = e => { if (e.target.files[0]) processImage(e.target.files[0], setterFunc, previewDiv, img); };
+    if (clearBtn) clearBtn.onclick = () => { setterFunc(null); previewDiv.classList.add('hidden'); img.src = ''; };
+}
+setupOrangeImageUpload('imgDropZone','uniImageInput','uniImagePreview','uniPreviewImg','clearUniImage',(f) => currentUniImageFile = f);
+setupOrangeImageUpload('mmDropZone','mmImageInput','mmPreview','mmPreviewImg','clearMmImage',(f) => currentMmImageFile = f);
+
+function initToggle(containerId, callback) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.querySelectorAll('.toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            container.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if (callback) callback(btn.getAttribute('data-mode'));
+        });
+    });
+}
+initToggle('uniClassToggle', (mode) => {
+    uniClassMode = mode;
+    // ✅ Auto-switch model select to match binary/multiclass
+    const sel = document.getElementById('textModelSelect');
+    if (mode === 'binary') sel.value = 'xlmr_binary';
+    else sel.value = 'xlmr_multiclass';
+});
+initToggle('mmClassToggle', (mode) => { mmClassMode = mode; });
+
+// Navigation
+const sections = { home:'homeSection', unimodal:'unimodalSection', multimodal:'multimodalSection', history:'historySection', about:'aboutSection' };
+function setActiveView(v) {
+    Object.keys(sections).forEach(s => document.getElementById(sections[s]).classList.add('hidden'));
+    document.getElementById(sections[v]).classList.remove('hidden');
+    document.querySelectorAll('.sidebar-item').forEach(btn => {
+        btn.classList.toggle('sidebar-active', btn.getAttribute('data-nav') === v);
+    });
+}
+document.querySelectorAll('[data-nav]').forEach(btn => btn.addEventListener('click', () => setActiveView(btn.getAttribute('data-nav'))));
+document.getElementById('getStartedBtn').onclick = () => setActiveView('unimodal');
+document.querySelectorAll('.uni-tab').forEach(btn => btn.onclick = function() {
+    let mode = this.innerText.includes('Text') ? 'text' : 'image';
+    document.getElementById('textPanel').classList.toggle('hidden', mode !== 'text');
+    document.getElementById('imagePanel').classList.toggle('hidden', mode !== 'image');
+    document.querySelectorAll('.uni-tab').forEach(b => b.classList.remove('text-orange-500','border-b-2','border-orange-500','font-bold'));
+    this.classList.add('text-orange-500','border-b-2','border-orange-500','font-bold');
+});
+
+// ✅ ANALYZE TEXT — calls real backend
+document.getElementById('analyzeTextBtn').onclick = async () => {
+    const text = document.getElementById('uniText').value.trim();
+    if (!text) { showErrorToast('uniTextError', '❌ Please enter text.'); return; }
+    if (text.length < 5) { showErrorToast('uniTextError', '⚠️ Minimum 5 characters.'); return; }
+
+    const modelKey = document.getElementById('textModelSelect').value;
+    showLoading(true);
+    try {
+        const apiRes = await callBackend(text, modelKey);
+        const result = backendToResult(apiRes, text);
+        showLoading(false);
+        renderDetailedOutput(result, text, false, [], uniClassMode);
+        addHistory('Text', result.prediction, result.hateType, text);
+    } catch (err) {
+        showLoading(false);
+        showErrorToast('uniTextError', '❌ Backend error: ' + err.message + ' — Make sure app.py is running.');
+    }
+};
+
+// Image — mock (no image model in backend)
+document.getElementById('analyzeImageBtn').onclick = async () => {
+    if (!currentUniImageFile) { showErrorToast('uniTextError', '📸 Upload an image (max 5MB)'); return; }
+    showLoading(true);
+    try {
+        let res = await mockImageAnalysisWithSize(currentUniImageFile, 'ViT');
+        showLoading(false);
+        renderDetailedOutput({...res, wordScores: null}, '', true, res.bbox, "binary");
+        addHistory('Image', res.prediction, res.hateType, currentUniImageFile.name);
+    } catch(err) { showLoading(false); showErrorToast('uniTextError', err); }
+};
+
+// Multimodal — mock
+document.getElementById('analyzeMmBtn').onclick = async () => {
+    let text = document.getElementById('mmText').value.trim();
+    if (text.length < 5) { showErrorToast('mmError', 'Text min 5 characters'); return; }
+    if (!currentMmImageFile) { showErrorToast('mmError', 'Upload image (max 5MB)'); return; }
+    showLoading(true);
+    try {
+        let fusion = document.getElementById('fusionSelect').value;
+        let res = await mockMultimodalAnalysis(text, currentMmImageFile, fusion, mmClassMode);
+        showLoading(false);
+        renderDetailedOutput({...res, wordScores: null}, text, false, [], mmClassMode);
+        addHistory('Multimodal', res.prediction, res.hateType, text);
+    } catch(e) { showLoading(false); showErrorToast('mmError', e); }
+};
+
+document.getElementById('clearHistoryBtn').onclick = () => { historyData = []; localStorage.setItem('hate_history_orange','[]'); renderHistory(); };
+renderHistory();
+setActiveView('home');
+
+// Urdu Keyboard
+(function() {
+    const keyboardDiv = document.getElementById('urduKeyboard');
+    document.querySelectorAll('textarea').forEach(textarea => {
+        let wrapper = textarea.closest('.textarea-wrapper');
+        if (!wrapper) { wrapper = document.createElement('div'); wrapper.className = 'textarea-wrapper'; textarea.parentNode.insertBefore(wrapper, textarea); wrapper.appendChild(textarea); }
+        const toggleBtn = document.createElement('button');
+        toggleBtn.innerText = '⌨️ اُردو کی بورڈ';
+        toggleBtn.className = 'urdu-toggle-btn';
+        toggleBtn.type = 'button';
+        wrapper.appendChild(toggleBtn);
+        toggleBtn.addEventListener('click', (e) => { e.stopPropagation(); window.activeUrduInput = textarea; keyboardDiv.style.display = 'flex'; textarea.focus(); });
+    });
+    keyboardDiv.querySelectorAll('[data-urdu]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const val = btn.getAttribute('data-urdu');
+            const active = window.activeUrduInput;
+            if (!active) return;
+            if (val === ' ') insertAtCursor(active, ' ');
+            else if (val === 'backspace') {
+                const start = active.selectionStart, end = active.selectionEnd, text = active.value;
+                if (start === end && start > 0) { active.value = text.slice(0,start-1)+text.slice(end); active.setSelectionRange(start-1,start-1); }
+                else if (start !== end) { active.value = text.slice(0,start)+text.slice(end); active.setSelectionRange(start,start); }
+            } else insertAtCursor(active, val);
+            active.focus();
+        });
+    });
+    keyboardDiv.querySelector('[data-close-urdu]').addEventListener('click', () => { keyboardDiv.style.display = 'none'; });
+    function insertAtCursor(input, char) {
+        const start = input.selectionStart, end = input.selectionEnd;
+        input.value = input.value.slice(0,start)+char+input.value.slice(end);
+        input.setSelectionRange(start+char.length, start+char.length);
+        input.dispatchEvent(new Event('input'));
+    }
+    document.addEventListener('click', (e) => { if (!keyboardDiv.contains(e.target) && !e.target.classList?.contains('urdu-toggle-btn')) { if (keyboardDiv.style.display === 'flex') keyboardDiv.style.display = 'none'; } });
+})();
+</script>
+</body>
+</html>
